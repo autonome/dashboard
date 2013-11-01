@@ -1,0 +1,564 @@
+<!doctype html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>dashboard</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width">
+  <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
+  <!-- build:css({.tmp,app}) styles/main.css -->
+  <link rel="stylesheet" href="styles/board.css">
+  <!-- endbuild -->
+  <!-- build:js scripts/vendor/modernizr.js -->
+  <script src="bower_components/modernizr/modernizr.js"></script>
+  <!-- endbuild -->
+  <link rel="stylesheet" href="bower_components/jquery-ui/themes/base/jquery-ui.css" />
+
+  <!--
+  <script src="scripts/polymer.min.js"></script>
+  <link rel="import" href="tk-element-databinding.html">
+  -->
+</head>
+<body>
+  <div class="container">
+
+    <div class="sidebar">
+    </div>
+
+    <div class="hero-unit">
+      <h1 id="title">Create a Dashboard</h1>
+      <button id="signin">Sign in</button>
+            
+      <!-- ich template for widgets -->
+      <script id="item" type="text/html">
+        <div id="{{ key }}" class="item">
+          <span class="editButton">edit</span>
+          <span class="deleteButton">delete</span>
+          <a href="{{ url }}" target="new">
+            <h3>{{ name }}</h3>
+            <div class="content">{{ content }}</div>
+          </a>
+        </div>
+      </script>
+
+      <div id="createBoard">
+        Board does not exist.
+        <button id="createButton">Create?</button>
+      </div>
+
+      <div id="badBoard">
+        Invalid board name. Only letters and numbers allowed.
+      </div>
+
+      <div id="noBoard">
+        Append a boardname to the URL to create it! Example: ?myboard
+      </div>
+
+      <div id="noLogin">
+        Login to create a board.
+      </div>
+
+      <div class="grid meticulous">
+      </div>
+
+    </div>
+  </div>
+
+  <!-- boilerplate -->
+    <!--[if lt IE 7]>
+        <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+    <![endif]-->
+
+    <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. 
+      <script>
+        var _gaq=[['_setAccount','UA-XXXXX-X'],['_trackPageview']];
+        (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+        g.src='//www.google-analytics.com/ga.js';
+        s.parentNode.insertBefore(g,s)}(document,'script'));
+      </script>
+    -->
+
+    <!-- build:js scripts/main.js -->
+    <script data-main="scripts/main" src="bower_components/eventEmitter/EventEmitter.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery/jquery.min.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery-ui.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.draggable.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.resizable.js"></script>
+    <script data-main="scripts/main" src="bower_components/mousetrap/mousetrap.min.js"></script>
+    <!-- endbuild -->
+
+    <!--<script data-main="scripts/main" src="scripts/packery.pkgd.min.js"></script>-->
+    <!--<script src="scripts/packery.pkgd.min.js"></script>-->
+    <script src="http://packery.metafizzy.co/packery.pkgd.min.js"></script>
+    <script src="http://draggabilly.desandro.com/draggabilly.pkgd.js"></script>
+    <!--<script src="scripts/draggabilly.pkgd.js"></script>-->
+
+    <script src="scripts/ICanHaz.js"></script>
+
+    <script type='text/javascript' src='https://cdn.firebase.com/v0/firebase.js'></script>
+    <script type='text/javascript' src='https://cdn.firebase.com/v0/firebase-simple-login.js'></script>
+    <script type='text/javascript' src='https://login.persona.org/include.js'></script>
+  <!-- end boilerplate -->
+
+  <script>
+    $(window).ready(function() {
+
+      /*
+
+      MVP
+      * move data to subtree and change to list
+      * store historical values
+      * a [+] button to add new boxes
+      * ability to delete board
+      * documentation
+      * spinner while logging in
+      * wrap/chop content in box
+
+      Phase 2
+      * set background image
+      * ability to fork board
+      * make font proportional to box size
+      * modify and persist layout
+      * cache value, update on timer
+
+      Phase 3
+      * make box+textarea bigger when focused
+      * allow fancy board names
+
+      Test Script
+      * not logged in, go to /, expect "Login to create a board" and a login button
+      * logged in, go to /, expect "Append a boardname to the URL to create it! Example: ?myboard "
+      * logged in, go to /?myboard", expect "Board does not exist." and a button labeled "Create?"
+      * FAIL: logged in, click "Create?", expect "not exist" and button to go away and a [add] button to be visible
+      * after creating new box and unfocusing it, it's no longer editable, but shows the content and a delete button
+      * after closing and reopening the page, all boxes have delete buttons still
+      * the delete button deletes the box permanently
+      * double-clicking a box makes it editable
+
+      * TODO: after logout
+      * TODO: not logged in, not owner
+      * TODO: logged in, not owner
+      * TODO: relogin to own board
+
+      */
+
+      var user = null,
+          owner = null,
+          boardName = window.location.search.replace('?', ''),
+          auth = null,
+          firebaseURL = 'https://mozilla.firebaseio.com/dashboards/',
+          firebaseRef = new Firebase(firebaseURL),
+          items = {},
+          events = new EventEmitter(),
+          debug = true
+
+      /*
+      // iterate over boards
+      firebaseRef.on('child_added', function(board) {
+        var boardRef = board.ref()
+        console.log('BOARD', boardRef.name())
+        // migrate data items to board/data/{item}
+        var dataRef = boardRef.child('data')
+        boardRef.on('child_added', function(item) {
+          var key = item.name()
+          if (key == 'owner' || key == 'title' || key == 'data')
+            return
+          console.log('UPDATING KEY', key)
+          dataRef.child(key).set(item.val())
+          console.log('UPDATED KEY', key)
+        })
+        // populate sidebar
+        var boardVal = board.val()
+      })
+      */
+
+      function d(m) {
+        if (debug)
+          console.log(m)
+      }
+
+      // check persona login
+      auth = new FirebaseSimpleLogin(firebaseRef, function(error, user) {
+        if (error) {
+          // an error occurred while attempting login
+          d('login error', error)
+        }
+        else if (user) {
+          // user authenticated with Firebase
+          //d('User ID: ' + user.id + ', Provider: ' + user.provider)
+          events.emit('loggedIn', user)
+        }
+        else {
+          // user is not logged in
+          events.emit('loggedOut')
+        }
+      })
+
+      // for keys
+      function firebaseSanitize(str) {
+        // TODO: make lower case
+        return str.replace(/[\.\$\[\]#\/]/g, '')
+      }
+
+      function checkFirebase(key, cb) {
+        var ref = firebaseRef.child(boardName).child('data').child(key)
+        ref.once('value', function(snapshot) {
+          cb(snapshot.val())
+        })
+      }
+
+      function updateFirebase(key, obj) {
+        try {
+          var ref = firebaseRef.child(boardName).child('data').child(key)
+          ref.set(obj)
+        } catch(ex) {
+          d('Problem writing to Firebase', ex)
+        }
+      }
+
+      function removeFromFirebase(key) {
+        try {
+          var ref = firebaseRef.child(boardName).child('data').child(key)
+          ref.remove()
+        } catch(ex) {
+          d('Problem deleting from Firebase', ex)
+        }
+      }
+
+      function addItem(obj) {
+        var item = ich.item(obj)
+
+        items[obj.key] = item
+
+        item.data('url', obj.url)
+        item.data('title', obj.title)
+
+        // add to packery layout
+        $('.grid').packery().append(item).packery('appended', item).packery()
+
+        if (userIsOwner())
+          events.emit('editable')
+
+        return item
+      }
+
+      function userIsOwner() {
+        return owner && user && user.id == owner
+      }
+
+      function makeBoxEditable(box) {
+        box.find('a').removeAttr('href')
+
+        // make box editable
+        var content = box.find('.content'),
+            title = box.find('h3').html() || 'Box Title',
+            url = box.data('url') || 'https://bugzilla.mozilla.org/buglist.cgi?list_id=7641040&resolution=---&resolution=DUPLICATE&status_whiteboard_type=allwordssubstr&query_format=advanced&status_whiteboard=d-watch'
+        content.html('<textarea class="input mousetrap">' + title + ',' + url + '</textarea>')
+
+        // do stuff when unfocused
+        var textarea = content.find('textarea')
+        textarea.on('focusout', boxTextareaBlurHandler).focus()
+      }
+
+      function boxTextareaBlurHandler(e) {
+        var textarea = $(e.target)
+        var content = textarea.parents('.content')
+        var box = content.parents('.item')
+        var text = textarea.val()
+        var values = text.split(',')
+        var title = values[0],
+            url = values[1]
+
+        // TODO: what to do if there's not?
+        if (url && title) {
+          // save locally
+          box.data('url', url)
+          box.data('title', title)
+
+          // update title
+          box.find('h3').html(title)
+
+          // save to firebase
+          updateFirebase(box.attr('id'), {
+            url: url,
+            title: title
+          })
+
+          // load
+          loadItem(box)
+
+          // add dblclick handler back
+          box.find('a').attr('href', url)
+        }
+      }
+
+      function loadItem(itemEl) {
+        itemEl.find('.content').html('Loading...')
+        var url = itemEl.data('url')
+        if (url.indexOf('https://bugzilla.mozilla.org/buglist') === 0) {
+          var apiurl = 'https://api-dev.bugzilla.mozilla.org/latest/count?' + url.split('?')[1]
+          bugCount(apiurl, function(resp) {
+            itemEl.find('.content').html(resp.data)
+          })
+        }
+        // TODO: handle URL -> iframe?
+        // otherwise, just set as html
+        else {
+          itemEl.find('.content').html(url)
+        }
+      }
+
+      // get bug count for search url
+      function bugCount(url, callback) {
+        var jqxhr = $.getJSON(url, function(resp) {
+          callback(resp)
+        }).fail(function(a, t) {
+          console.log('bugcount fail', t)
+        })
+      }
+
+      // create new boxes with alt+n
+      Mousetrap.bind('alt+n', function(e) {
+        if (!userIsOwner()) return
+
+        var id = 'key' + Date.now()
+
+        // add item
+        var item = addItem({
+          key: id,
+          name: 'New Item',
+          content: '',
+          url: ''
+        })
+
+        // put in editable mode
+        makeBoxEditable(item)
+      })
+
+      // handle esc when leaving textarea
+      Mousetrap.bind('esc', function(e) {
+        if (e.target.tagName == 'TEXTAREA')
+          boxTextareaBlurHandler(e)
+      })
+
+      // edit button
+      function editButtonClickHandler(e) {
+        var box = $(this).parent()
+        makeBoxEditable(box)
+      }
+
+      // delete button
+      function deleteButtonClickHandler(e) {
+        var box = $(this).parent()
+        var id = box.attr('id')
+        removeFromFirebase(id)
+        pckry.remove(box)
+        pckry.layout()
+        box.remove()
+      }
+
+      // login button
+      function signin() {
+        if (!user) {
+          auth.login('persona', {
+            rememberMe: true
+          })
+        }
+        else {
+          auth.logout()
+        }
+      }
+      $('#signin').on('click', signin)
+
+      $('#createButton').on('click', function() {
+        if (/^[a-z0-9]+$/i.test(boardName)) {
+          // TODO: disable create button while saving
+
+          // save
+          firebaseRef.child(boardName).set({
+            owner: user.id,
+            title: boardName
+          }, function(error) {
+            if (!error) {
+              window.location.reload(true)
+            }
+            else {
+              // TODO: some kind of error
+            }
+          })
+        }
+        else {
+          // TODO: some kind of error
+        }
+      })
+
+      // init Packery
+      var pckry = new Packery(document.querySelector('.grid'), {
+        itemSelector: '.item',
+        gutter: 10 
+      })
+
+      // draggable + resizable
+      function onLayout() {
+        console.log('layoutComplete')
+
+        // get item elements, jQuery-ify them
+        var $itemElems = $( pckry.getItemElements() )
+
+        // make item elements draggable
+        $itemElems.draggable({
+          stop: function(event, ui) {
+            console.log('stop')
+            //pckry.stamp( event.target )
+            //event.target.classList.add('stamp')
+            //event.target.style.backgroundColor='blue'
+          }
+        })
+        pckry.bindUIDraggableEvents($itemElems)
+
+        // make item elements resizable
+        $itemElems.resizable({
+          resize: function( event, ui ) {
+            pckry.layout()
+          }
+        })
+      }
+      pckry.on('layoutComplete', onLayout)
+      onLayout()
+
+      function boardExists(boardName) {
+        var ref = firebaseRef.child(boardName).child('owner')
+        ref.once('value', function(snapshot) {
+          events.emit('boardExists', snapshot.val())
+        })
+      }
+
+      function getBoardOwner(firebaseRef, boardName, user) {
+        var ref = firebaseRef.child(boardName).child('owner')
+        ref.once('value', function(snapshot) {
+          events.emit('boardOwner', snapshot.val())
+        })
+      }
+
+      function loadBoard(boardName) {
+        // load items from firebase
+        var ref = firebaseRef.child(boardName)
+        ref.on('child_added', function(snapshot) {
+          var item = snapshot.val()
+          var key = snapshot.name()
+
+          // HACK: special keys
+          if (key == 'owner' || key == 'title') return
+
+          // if already added, then this is being received
+          // after a new box has already been added to the grid
+          if (items[key])
+            return
+
+          var el = addItem({
+            key: snapshot.name(),
+            name: item.title,
+            content: '',
+            url: item.url
+          })
+
+          // make live
+          loadItem(el)
+        })
+      }
+
+      events.on('boardExists', function(boardOwner) {
+        // board does exist
+        if (boardOwner) {
+          owner = boardOwner
+          $('#noLogin').hide()
+          $('#noBoard').hide()
+
+          $('#title').html(boardName)
+
+          loadBoard(boardName)
+        }
+        // board doesn't exist
+        else {
+          // user is logged in && name is valid
+          var nameIsValid = /^[a-z0-9]+$/i.test(boardName)
+          if (user && nameIsValid) {
+            d('boardExists: user & valid name')
+            $('#createBoard').show()
+            $('#badBoard').hide()
+            $('#noBoard').hide()
+            $('#noLogin').hide()
+          }
+          // user is logged in && name is not valid
+          else if (user && !nameIsValid) {
+            d('boardExists: user & invalid name')
+            $('#createBoard').hide()
+            $('#badBoard').show()
+            $('#noBoard').hide()
+            $('#noLogin').hide()
+          }
+        }
+      })
+
+      events.on('loggedIn', function(data) {
+        $('#signin')
+          .removeAttr('disabled')
+          .html('Sign Out')
+
+        if (!boardName) {
+          $('#noBoard').show()
+        }
+
+        if (data) {
+          user = data
+          $('#noLogin').hide()
+          if (userIsOwner())
+            events.emit('editable')
+        }
+        else
+          $('#noLogin').show()
+      })
+
+      events.on('loggedOut', function() {
+        user = null
+        $('#signin')
+          .removeAttr('disabled')
+          .html('Sign In')
+        $('.editButton').hide()
+        $('.deleteButton').hide()
+        if (!boardName) {
+          $('#noLogin').show()
+          $('#noBoard').hide()
+          $('#createBoard').hide()
+        }
+      })
+
+      events.on('editable', function() {
+        $('.editButton')
+          .show()
+          .on('click', editButtonClickHandler)
+
+        $('.deleteButton')
+          .show()
+          .on('click', deleteButtonClickHandler)
+      })
+
+      // load board if there is one
+      if (boardName) {
+        boardExists(boardName)
+      }
+
+      /*
+      function getBoards() {
+        var ref = firebaseRef.child(boardName).child(key)
+      }
+      */
+
+    })
+  </script>
+</body>
+</html>

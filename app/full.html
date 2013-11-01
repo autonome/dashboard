@@ -1,0 +1,124 @@
+<!doctype html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>dashboard</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width">
+  <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
+  <!-- build:css({.tmp,app}) styles/main.css -->
+  <link rel="stylesheet" href="styles/full.css">
+  <!-- endbuild -->
+  <!-- build:js scripts/vendor/modernizr.js -->
+  <script src="bower_components/modernizr/modernizr.js"></script>
+  <!-- endbuild -->
+  <link rel="stylesheet" href="bower_components/jquery-ui/themes/base/jquery-ui.css" />
+
+  <!--
+  <script src="scripts/polymer.min.js"></script>
+  <link rel="import" href="tk-element-databinding.html">
+  -->
+</head>
+<body>
+  <div class="container">
+
+    <div class="hero-unit">
+      <h1>dashboard</h1>
+            
+      <script id="item" type="text/html">
+        <div id=" {{ key }}" class="item">
+          <h3>{{ name }}</h3>
+          <div>{{ content }}</div>
+        </div>
+      </script>
+
+      <div class="grid meticulous">
+      </div>
+
+    </div>
+  </div>
+
+  <!--[if lt IE 7]>
+      <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+  <![endif]-->
+
+  <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
+  <script>
+      var _gaq=[['_setAccount','UA-XXXXX-X'],['_trackPageview']];
+      (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+      g.src='//www.google-analytics.com/ga.js';
+      s.parentNode.insertBefore(g,s)}(document,'script'));
+  </script>
+
+  <!-- build:js scripts/main.js -->
+  <script data-main="scripts/main" src="bower_components/EventEmitter/EventEmitter.js"></script>
+  <script data-main="scripts/main" src="bower_components/jquery/jquery.min.js"></script>
+  <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery-ui.js"></script>
+  <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.draggable.js"></script>
+  <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.resizable.js"></script>
+  <!--<script data-main="scripts/main" src="scripts/packery.pkgd.min.js"></script>-->
+  <!--<script src="scripts/packery.pkgd.min.js"></script>-->
+  <script src="http://packery.metafizzy.co/packery.pkgd.min.js"></script>
+  <!--<script src="scripts/draggabilly.pkgd.js"></script>-->
+  <!--<script data-main="scripts/main" type='text/javascript' src='scripts/jquery.isotope.min.js'></script>-->
+  <script src="scripts/ICanHaz.js"></script>
+  <!-- endbuild -->
+
+  <script>
+    $(window).ready(function() {
+
+      var items = {}
+
+      // generate some default items
+      for (var i = 0; i < 10; i++) {
+        items['key'+i] = {
+          id: 'key'+i,
+          name: 'thing'+i,
+          content: 'content',
+        }
+      }
+
+      var grid = document.querySelector('.grid')
+
+      // add items to document
+      Object.getOwnPropertyNames(items).forEach(function(key) {
+        var item = items[key]
+        item.openStories = 0, item.totalStories = 0, percentDone = 0
+        var html = ich.item(item, true)
+        grid.innerHTML += html
+      })
+
+      // init Packery
+      var pckry = new Packery(grid, {
+        itemSelector: '.item',
+        stamped: '.stamp',
+        gutter: 5 
+      })
+
+      // get item elements, jQuery-ify them
+      var $itemElems = $( pckry.getItemElements() )
+
+      // make item elements draggable
+      $itemElems.draggable({
+        stop: function(event, ui) {
+          pckry.stamp( event.target )
+          event.target.classList.add('stamp')
+          event.target.style.backgroundColor='blue'
+        }
+      })
+      pckry.bindUIDraggableEvents($itemElems)
+
+      // make item elements resizable
+      $itemElems.resizable({
+        resize: function( event, ui ) {
+          pckry.layout()
+        }
+      })
+    })
+  </script>
+</body>
+</html>
