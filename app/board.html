@@ -485,7 +485,7 @@
         // board doesn't exist
         else {
           // user is logged in && name is valid
-          var nameIsValid = /^[a-z0-9]+$/i.test(boardName)
+          var nameIsValid = /^[a-z0-9\-]+$/i.test(boardName)
           if (user && nameIsValid) {
             d('boardExists: user & valid name')
             $('#createBoard').show()
