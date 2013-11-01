@@ -375,25 +375,20 @@
       $('#signin').on('click', signin)
 
       $('#createButton').on('click', function() {
-        if (/^[a-z0-9]+$/i.test(boardName)) {
-          // TODO: disable create button while saving
+        // TODO: disable create button while saving
 
-          // save
-          firebaseRef.child(boardName).set({
-            owner: user.id,
-            title: boardName
-          }, function(error) {
-            if (!error) {
-              window.location.reload(true)
-            }
-            else {
-              // TODO: some kind of error
-            }
-          })
-        }
-        else {
-          // TODO: some kind of error
-        }
+        // save
+        firebaseRef.child(boardName).set({
+          owner: user.id,
+          title: boardName
+        }, function(error) {
+          if (!error) {
+            window.location.reload(true)
+          }
+          else {
+            // TODO: some kind of error
+          }
+        })
       })
 
       // init Packery
