@@ -6,7 +6,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>dashboard</title>
+  <title>Dashboard</title>
   <meta name="description" content="">
   <meta name="viewport" content="width=device-width">
   <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
@@ -110,6 +110,7 @@
       /*
 
       MVP
+      * [create] button does nothing still
       * move data to subtree and change to list
       * store historical values
       * a [+] button to add new boxes
@@ -156,12 +157,13 @@
           events = new EventEmitter(),
           debug = true
 
-      /*
       // iterate over boards
       firebaseRef.on('child_added', function(board) {
+        return
         var boardRef = board.ref()
-        console.log('BOARD', boardRef.name())
-        // migrate data items to board/data/{item}
+        //console.log('BOARD', boardRef.name())
+
+        /* migrate data items to board/data/{item}
         var dataRef = boardRef.child('data')
         boardRef.on('child_added', function(item) {
           var key = item.name()
@@ -170,11 +172,14 @@
           console.log('UPDATING KEY', key)
           dataRef.child(key).set(item.val())
           console.log('UPDATED KEY', key)
+          item.ref().remove()
+          console.log('REMOVED OLD KEY', key)
         })
+        */
         // populate sidebar
         var boardVal = board.val()
+
       })
-      */
 
       function d(m) {
         if (debug)
@@ -440,14 +445,13 @@
       }
 
       function loadBoard(boardName) {
+        console.log('loading', boardName)
         // load items from firebase
-        var ref = firebaseRef.child(boardName)
-        ref.on('child_added', function(snapshot) {
+        var boardRef = firebaseRef.child(boardName)
+        var dataRef = boardRef.child('data')
+        dataRef.on('child_added', function(snapshot) {
           var item = snapshot.val()
           var key = snapshot.name()
-
-          // HACK: special keys
-          if (key == 'owner' || key == 'title') return
 
           // if already added, then this is being received
           // after a new box has already been added to the grid
@@ -473,7 +477,8 @@
           $('#noLogin').hide()
           $('#noBoard').hide()
 
-          $('#title').html(boardName)
+          document.title = capitalise(boardName)
+          $('#title').html(capitalise(boardName))
 
           loadBoard(boardName)
         }
@@ -547,11 +552,9 @@
         boardExists(boardName)
       }
 
-      /*
-      function getBoards() {
-        var ref = firebaseRef.child(boardName).child(key)
+      function capitalise(s) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
       }
-      */
 
     })
   </script>
