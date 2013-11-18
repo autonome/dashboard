@@ -2,17 +2,30 @@ body {
   margin: 0 auto 0 auto;
   background: #fafafa;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 200;
   color: #333;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#container {
+  display: flex;
+  flex: 1;
+}
+
+#sidebar {
+  background-color: yellow;
+  flex: 0 0 12em;
+  padding: 2px;
 }
 
 .hero-unit {
-  margin: 0 auto 0 auto;
   font-size: 16px;
-  font-weight: 200;
   background-color: #eee;
-  border-radius: 6px;
   padding: 20px;
   padding-bottom: 100px;
+  flex: 1;
 }
 
 .hero-unit h1 {
@@ -75,3 +88,4 @@ h3 {
   font-size: 3em;
   text-align: center;
 }
+

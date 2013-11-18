@@ -24,14 +24,20 @@
   -->
 </head>
 <body>
-  <div class="container">
 
-    <div class="sidebar">
-    </div>
+  <div id="container">
+    <nav id="sidebar">
+      <template id="board-link">
+        <div>
+          <a href=""></a>
+        </div>
+      </template>
+    </nav>
 
-    <div class="hero-unit">
+    <main class="hero-unit">
       <h1 id="title">Create a Dashboard</h1>
       <button id="signin">Sign in</button>
+
             
       <!-- ich template for widgets -->
       <script id="item" type="text/html">
@@ -64,23 +70,13 @@
 
       <div class="grid meticulous">
       </div>
-
-    </div>
+    </main>
   </div>
 
   <!-- boilerplate -->
     <!--[if lt IE 7]>
         <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
     <![endif]-->
-
-    <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. 
-      <script>
-        var _gaq=[['_setAccount','UA-XXXXX-X'],['_trackPageview']];
-        (function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
-        g.src='//www.google-analytics.com/ga.js';
-        s.parentNode.insertBefore(g,s)}(document,'script'));
-      </script>
-    -->
 
     <!-- build:js scripts/main.js -->
     <script data-main="scripts/main" src="bower_components/eventEmitter/EventEmitter.js"></script>
@@ -109,41 +105,41 @@
 
       /*
 
-      MVP
-      * [create] button does nothing still
-      * move data to subtree and change to list
-      * store historical values
-      * a [+] button to add new boxes
-      * ability to delete board
-      * documentation
-      * spinner while logging in
-      * wrap/chop content in box
+        MVP
+        * [create] button does nothing still
+        * move data to subtree and change to list
+        * store historical values
+        * a [+] button to add new boxes
+        * ability to delete board
+        * documentation
+        * spinner while logging in
+        * wrap/chop content in box
 
-      Phase 2
-      * set background image
-      * ability to fork board
-      * make font proportional to box size
-      * modify and persist layout
-      * cache value, update on timer
+        Phase 2
+        * set background image
+        * ability to fork board
+        * make font proportional to box size
+        * modify and persist layout
+        * cache value, update on timer
 
-      Phase 3
-      * make box+textarea bigger when focused
-      * allow fancy board names
+        Phase 3
+        * make box+textarea bigger when focused
+        * allow fancy board names
 
-      Test Script
-      * not logged in, go to /, expect "Login to create a board" and a login button
-      * logged in, go to /, expect "Append a boardname to the URL to create it! Example: ?myboard "
-      * logged in, go to /?myboard", expect "Board does not exist." and a button labeled "Create?"
-      * FAIL: logged in, click "Create?", expect "not exist" and button to go away and a [add] button to be visible
-      * after creating new box and unfocusing it, it's no longer editable, but shows the content and a delete button
-      * after closing and reopening the page, all boxes have delete buttons still
-      * the delete button deletes the box permanently
-      * double-clicking a box makes it editable
+        Test Script
+        * not logged in, go to /, expect "Login to create a board" and a login button
+        * logged in, go to /, expect "Append a boardname to the URL to create it! Example: ?myboard "
+        * logged in, go to /?myboard", expect "Board does not exist." and a button labeled "Create?"
+        * FAIL: logged in, click "Create?", expect "not exist" and button to go away and a [add] button to be visible
+        * after creating new box and unfocusing it, it's no longer editable, but shows the content and a delete button
+        * after closing and reopening the page, all boxes have delete buttons still
+        * the delete button deletes the box permanently
+        * double-clicking a box makes it editable
 
-      * TODO: after logout
-      * TODO: not logged in, not owner
-      * TODO: logged in, not owner
-      * TODO: relogin to own board
+        * TODO: after logout
+        * TODO: not logged in, not owner
+        * TODO: logged in, not owner
+        * TODO: relogin to own board
 
       */
 
@@ -157,28 +153,16 @@
           events = new EventEmitter(),
           debug = true
 
-      // iterate over boards
+      var boardLinkTemplate = document.querySelector('#board-link').content,
+          sidebar = document.querySelector('#sidebar')
+
+      // populate sidebar
       firebaseRef.on('child_added', function(board) {
-        return
-        var boardRef = board.ref()
-        //console.log('BOARD', boardRef.name())
-
-        /* migrate data items to board/data/{item}
-        var dataRef = boardRef.child('data')
-        boardRef.on('child_added', function(item) {
-          var key = item.name()
-          if (key == 'owner' || key == 'title' || key == 'data')
-            return
-          console.log('UPDATING KEY', key)
-          dataRef.child(key).set(item.val())
-          console.log('UPDATED KEY', key)
-          item.ref().remove()
-          console.log('REMOVED OLD KEY', key)
-        })
-        */
-        // populate sidebar
-        var boardVal = board.val()
-
+        var boardName = board.ref().name(),
+            a = boardLinkTemplate.querySelector('a')
+        a.innerHTML = boardName
+        a.href = document.location.href.replace(document.location.search, '?' + boardName)
+        sidebar.appendChild(boardLinkTemplate.cloneNode(true))
       })
 
       function d(m) {
