@@ -20,6 +20,11 @@ body {
   padding: 2px;
 }
 
+#title {
+  margin-top: 0;
+  font-size: 1.5em;
+}
+
 .hero-unit {
   font-size: 16px;
   background-color: #eee;
@@ -40,10 +45,11 @@ body {
 
 .item {
   margin: 4px;
-  width: 200px;
+  width: 140px;
   background-color: silver;
   border-radius: 2px;
-  padding: 10px;
+  padding: 4px;
+  padding-bottom: 8px;
 }
 
 a {
@@ -53,6 +59,7 @@ a {
 
 h3 {
   margin: 0;
+  font-size: 1em;
 }
 
 .editButton {
@@ -85,7 +92,7 @@ h3 {
 
 .content {
   font-weight: bold;
-  font-size: 3em;
+  font-size: 2em;
   text-align: center;
 }
 

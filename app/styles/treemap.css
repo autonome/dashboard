@@ -1,0 +1,43 @@
+
+svg {
+    overflow: hidden;
+}
+
+rect {
+    pointer-events: all;
+    cursor: pointer;
+    stroke: #EEEEEE;
+}
+
+.chart {
+    display: block;
+    margin: auto;
+}
+
+.parent .label {
+    color: #FFFFFF;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.labelbody {
+    background: transparent;
+}
+
+.label {
+    margin: 2px;
+    white-space: pre;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.child .label {
+    white-space: pre-wrap;
+    text-align: center;
+    text-overflow: ellipsis;
+}
+
+.cell {
+    font-size: 11px;
+    cursor: pointer
+}

@@ -1,0 +1,242 @@
+<!doctype html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Dashboard</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width">
+  <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
+  <!-- build:css({.tmp,app}) styles/main.css -->
+  <link rel="stylesheet" href="styles/board.css">
+  <link rel="stylesheet" href="styles/treemap.css">
+  <!-- endbuild -->
+  <!-- build:js scripts/vendor/modernizr.js -->
+  <script src="bower_components/modernizr/modernizr.js"></script>
+  <!-- endbuild -->
+  <link rel="stylesheet" href="bower_components/jquery-ui/themes/base/jquery-ui.css" />
+
+  <!--
+  <script src="scripts/polymer.min.js"></script>
+  <link rel="import" href="tk-element-databinding.html">
+  -->
+</head>
+<body>
+
+  <div id="container">
+    <nav id="sidebar">
+      <template id="board-link">
+        <div>
+          <a href=""></a>
+        </div>
+      </template>
+    </nav>
+
+    <main class="hero-unit">
+      <h2 id="title">Create a Dashboard</h2>
+      <button id="signin">Sign in</button>
+
+      <div id="createBoard">
+        Board does not exist.
+        <button id="createButton">Create?</button>
+      </div>
+
+      <div id="badBoard">
+        Invalid board name. Only letters and numbers allowed.
+      </div>
+
+      <div id="noBoard">
+        Append a boardname to the URL to create it! Example: ?myboard
+      </div>
+
+      <div id="noLogin">
+        Login to create a board.
+      </div>
+
+      <!-- template for a search viz -->
+      <template id="bugSearchFilter">
+        <div id="{{ key }}" class="item">
+          <h3>{{ name }}</h3>
+          <h3>total bugs in search: 444</h3>
+          <h3>bar chart of component</h3>
+          <h3>pie chart of blocking-b2g value</h3>
+          <h3>pie chart of component</h3>
+          <h3>table of assignee|blocking-b2g:none|leo|koi|1.3|1.4</h3>
+        </div>
+      </template>
+
+      <!--
+      <input id="wtf" type="text">
+      </input>
+      -->
+
+      <div id="viz">
+      </div>
+
+    </main>
+  </div>
+
+  <!-- boilerplate -->
+    <!--[if lt IE 7]>
+        <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
+    <![endif]-->
+
+    <!-- build:js scripts/main.js -->
+    <script data-main="scripts/main" src="bower_components/eventEmitter/EventEmitter.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery/jquery.min.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery-ui.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.draggable.js"></script>
+    <script data-main="scripts/main" src="bower_components/jquery-ui/ui/jquery.ui.resizable.js"></script>
+    <script data-main="scripts/main" src="bower_components/mousetrap/mousetrap.min.js"></script>
+    <!-- endbuild -->
+
+    <!--<script data-main="scripts/main" src="scripts/packery.pkgd.min.js"></script>-->
+    <!--<script src="scripts/packery.pkgd.min.js"></script>-->
+    <script src="http://packery.metafizzy.co/packery.pkgd.min.js"></script>
+    <script src="http://draggabilly.desandro.com/draggabilly.pkgd.js"></script>
+    <!--<script src="scripts/draggabilly.pkgd.js"></script>-->
+
+    <script src="scripts/ICanHaz.js"></script>
+    <script src="scripts/boardcore.js"></script>
+
+    <script src="scripts/crossfilter.min.js"></script>
+    <script src="scripts/d3.v3.min.js"></script>
+    <script src="scripts/d3.treemap.js"></script>
+
+    <script type='text/javascript' src='https://cdn.firebase.com/v0/firebase.js'></script>
+    <script type='text/javascript' src='https://cdn.firebase.com/v0/firebase-simple-login.js'></script>
+    <script type='text/javascript' src='https://login.persona.org/include.js'></script>
+  <!-- end boilerplate -->
+
+  <script>
+    var firebaseBaseURL = 'https://mozilla.firebaseio.com',
+        categoryPath = 'bugsearchviews',
+        events = new EventEmitter(),
+        debug = true
+
+    $(window).ready(function() {
+      boardcore(firebaseBaseURL, categoryPath, events, debug)
+    })
+
+    // events.emit('ready', boardName, firebaseRef, userIsOwner)
+    events.on('ready', function(boardName, firebaseRef, isOwner) {
+
+      function init() {
+        console.log('loading board:', boardName)
+
+        /*
+        // load items from firebase
+        var boardRef = firebaseRef.child(boardName)
+        var dataRef = boardRef.child('data')
+        dataRef.on('child_added', function(snapshot) {
+          var item = snapshot.val()
+          var key = snapshot.name()
+        })
+        */
+
+        var testURL = 'https://bugzilla.mozilla.org/buglist.cgi?list_id=8641691&resolution=FIXED&chfieldto=Now&chfield=resolution&query_format=advanced&chfieldfrom=-1d&chfieldvalue=FIXED&bug_status=RESOLVED&product=Firefox%20OS'
+        bugData(testURL, function(resp) {
+          var treedata = bugdata2treemap('Blocker Activity', resp.bugs, 'cf_blocking_b2g')
+          d3treemap('#viz', treedata)
+          console.log(treedata)
+        })
+      }
+      init()
+
+      function bugdata2treemap(title, bugdata, groupProperty, subgroupProperty) {
+        var id = 1,
+            treedata = { id: id, name: title, children: [] },
+            groups = {}
+
+        function addToGroup(bug) {
+          if (!groups[ bug[groupProperty] ])
+            groups[ bug[groupProperty] ] = 0
+          groups[ bug[groupProperty] ] += 1
+        }
+
+        bugdata.forEach(addToGroup)
+
+        for (var key in groups) {
+          treedata.children.push({
+            id: 'id' + ++id,
+            name: 'Blocking? ' + key,
+            size: groups[key]
+          })
+        }
+        
+        return treedata
+      }
+
+      // for keys
+      function firebaseSanitize(str) {
+        // TODO: make lower case
+        return str.replace(/[\.\$\[\]#\/]/g, '')
+      }
+
+      function checkFirebase(key, cb) {
+        var ref = firebaseRef.child(boardName).child('data').child(key)
+        ref.once('value', function(snapshot) {
+          cb(snapshot.val())
+        })
+      }
+
+      function updateFirebase(key, obj) {
+        try {
+          var ref = firebaseRef.child(boardName).child('data').child(key)
+          ref.set(obj)
+        } catch(ex) {
+          d('Problem writing to Firebase', ex)
+        }
+      }
+
+      function removeFromFirebase(key) {
+        try {
+          var ref = firebaseRef.child(boardName).child('data').child(key)
+          ref.remove()
+        } catch(ex) {
+          d('Problem deleting from Firebase', ex)
+        }
+      }
+
+      function userIsOwner() {
+        return isOwner
+      }
+
+      /*
+      // do stuff when unfocused
+      var wtf = document.querySelector('#wtf')
+      wtf.addEventListener('input', function() {
+        if (wtf.value) {
+          bugData(wtf.value, function(resp) {
+            console.log(resp.bugs)
+          })
+        }
+      }, false)
+      */
+
+      // get bug data for search url
+      function bugData(url, callback) {
+        var apiurl = 'https://api-dev.bugzilla.mozilla.org/latest/bug?' + url.split('?')[1]
+        var jqxhr = $.getJSON(apiurl, function(resp) {
+          callback(resp)
+        }).fail(function(a, t) {
+          console.log('bugcount fail', t)
+        })
+      }
+
+      events.on('editable', function() {
+        // TODO: enable input box, populated with search
+        // TODO: show delete-board
+      })
+
+      function capitalise(s) {
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+
+    })
+  </script>
+</body>
+</html>

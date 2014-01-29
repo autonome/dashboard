@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>bug visual distribution</title>
+    <script src="bower_components/jquery/jquery.min.js"></script>
+    <script type="text/javascript" src="scripts/d3.v3.min.js"></script>
+    <style type="text/css">
+        body {
+          margin: 0;
+          font-size: 12px;
+          font-family: "Helvetica Neue", Helvetica;
+          text-align: center;
+          width: 100%;
+        }
+
+        .header {
+            z-index: 1;
+            display: block;
+            font-size: 18px;
+            font-weight: 200;
+            text-shadow: 0 1px 0 #fff;
+            margin-bottom: 10px;
+        }
+
+        svg {
+            overflow: hidden;
+        }
+
+        rect {
+            pointer-events: all;
+            cursor: pointer;
+            stroke: #EEEEEE;
+        }
+
+        .chart {
+            display: block;
+            margin: auto;
+        }
+
+        .parent .label {
+            color: #FFFFFF;
+            text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+            -webkit-text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+            -moz-text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+        }
+
+        .labelbody {
+            background: transparent;
+        }
+
+        .label {
+            margin: 2px;
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+            -webkit-text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+            -moz-text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+        }
+
+        .child .label {
+            white-space: pre-wrap;
+            text-align: center;
+            text-overflow: ellipsis;
+        }
+
+        .cell {
+            font-size: 11px;
+            cursor: pointer
+        }
+
+        #shareContainer {
+          display: none;
+        }
+    </style>
+</head>
+<body>
+  <div class="header">
+
+    Any Bugzilla Search URL: <input type="text" id="searchURL">
+
+    <select id="group1">
+    </select>
+
+    <select id="group2">
+    </select>
+
+    <input type="button" id="submit" value="go">
+    
+    <!--
+    <select id="sizecount">
+      <option value="size">Size</option>
+      <option value="count">Count</option>
+    </select>
+    -->
+
+    <div id="shareContainer">
+      Copy URL to share: <input type="text" id="share" value="">
+    </div>
+  </div>
+  <div id="body">
+  </div>
+</body>
+
+<script type="text/javascript">
+
+  /*
+
+     TODO
+     * link to bug search on each box
+     * autocreate copyable shortlink
+     * cache tree in firebase
+     
+  */
+
+  // default url
+  var autoload = false,
+      group1 = null,
+      group2 = null,
+      defaultURL = 'https://bugzilla.mozilla.org/buglist.cgi?list_id=8641691&resolution=FIXED&chfieldto=Now&chfield=resolution&query_format=advanced&chfieldfrom=-1d&chfieldvalue=FIXED&bug_status=RESOLVED&product=Firefox%20OS&limit=0'
+      //defaultURL = 'https://bugzilla.mozilla.org/buglist.cgi?list_id=8641691&resolution=FIXED&chfieldto=Now&chfield=resolution&query_format=advanced&chfieldfrom=-7d&chfieldvalue=FIXED&bug_status=RESOLVED&product=Firefox%20OS&limit=0'
+
+  // any search passed in url?
+  var search = window.location.search
+  if (search) {
+    var parts = search.substr(1).split('&').reduce(function(retval, val) {
+      var pieces = val.split('=')
+      retval[ pieces[0] ] = pieces[1]
+      return retval
+    }, {})
+    console.log(parts.group1, parts.group2, parts.url)
+    if (parts.url) {
+      defaultURL = search.substring(search.indexOf('url=') + 4)
+      group1 = parts.group1
+      group2 = parts.group2
+      autoload = true
+    }
+  }
+
+  document.querySelector('#searchURL').value = defaultURL
+
+  function bugdata2treemap(bugdata, properties) {
+    var id = 1
+        //treedata = { id: id, name: title, children: [] },
+        //groups = {}
+
+    function getBugsGroupedByProperty(bugs, property) {
+      var vals = {} 
+      bugs.forEach(function(bug) {
+        var propertyValue = bug[property]
+        if (!vals[propertyValue])
+          vals[propertyValue] = [bug]
+        else
+          vals[propertyValue].push(bug)
+      })
+      return vals
+    }
+
+    function getPropertyCounts(bugs, property) {
+      var vals = {} 
+      bugs.forEach(function(bug) {
+        var propertyValue = bug[property]
+        if (!vals[propertyValue])
+          vals[propertyValue] = 1
+        else
+          vals[propertyValue]++
+      })
+      return vals
+    }
+
+    function makeTreeNode(name, size, children) {
+      var node = {
+        id: ++id,
+        name: name
+      }
+      if (size)
+        node.size = size
+      if (children)
+        node.children = children
+      return node
+    }
+
+    function recurser(title, properties, bugs) {
+      var property = properties[0],
+          properties = properties.slice(1),
+          label = title + ' (' + bugs.length + ' bugs)',
+          node = makeTreeNode(label, null, []),
+          treechildren = []
+
+      if (properties.length) {
+        var groups = getBugsGroupedByProperty(bugs, property)
+        Object.keys(groups).forEach(function(groupName) {
+          var groupBugs = groups[groupName]
+          var childnode = recurser(groupName, properties, groupBugs)
+          treechildren.push(childnode)
+        })
+      }
+      else {
+        var propertyCounts = getPropertyCounts(bugs, property)
+        Object.keys(propertyCounts).forEach(function(key) {
+          var count = propertyCounts[key],
+              label = key + ' (' + count + ' bugs)',
+              node = makeTreeNode(label, count)
+          treechildren.push(node)
+        })
+      }
+
+      node.children = treechildren
+      return node
+    }
+
+    return recurser(properties[0], properties, bugdata)
+  }
+
+  function bugData(url, callback) {
+    var apiurl = 'https://api-dev.bugzilla.mozilla.org/latest/bug?' + url.split('?')[1]
+    var jqxhr = $.getJSON(apiurl, function(resp) {
+      resp.bugs.forEach(function(bug, i) {
+        resp.bugs[i]['assigned_to.name'] = bug.assigned_to.name
+        resp.bugs[i]['assigned_to.real_name'] = bug.assigned_to.real_name
+        delete resp.bugs[i].assigned_to
+      })
+      callback(resp.bugs)
+    }).fail(function(a, t) {
+      console.log('bugcount fail', t)
+    })
+  }
+
+  function object2option(obj, select, selected) {
+    Object.keys(obj).forEach(function(key) {
+      var option = document.createElement('option')
+      option.value = key
+      option.innerHTML = obj[key]
+      if (key == selected)
+        option.selected = true
+      select.appendChild(option)
+    })
+  }
+
+  // populate selects
+  var bugfields = {
+    //"cc_count":"cc_count",
+    "keywords":"keywords",
+    //"qa_contact":"qa_contact",
+    //"platform":"platform",
+    //"version":"version",
+    //"dupe_count":"dupe_count",
+    //"creator":"creator",
+    "cf_blocking_b2g":"cf_blocking_b2g",
+    //"last_change_time":"last_change_time",
+    "whiteboard":"whiteboard",
+    //"creation_time":"creation_time",
+    //"id":"id",
+    //"depends_on":"depends_on",
+    "status":"status",
+    "severity":"severity",
+    "component":"component",
+    "product":"product",
+    "blocks":"blocks",
+    //"url":"url",
+    //"ref":"ref",
+    //"qa_contact_realname":"qa_contact_realname",
+    //"summary":"summary",
+    "priority":"priority",
+    "resolution":"resolution",
+    "classification":"classification",
+    //"alias":"alias",
+    //"op_sys":"op_sys",
+    "target_milestone":"target_milestone",
+    "assigned_to.name":"assigned_to.name",
+    "assigned_to.real_name":"assigned_to.real_name"
+  }
+  var opts = {},
+      select1 = document.querySelector('#group1'),
+      select2 = document.querySelector('#group2')
+
+  function cf(f) {
+    return f.indexOf('cf') == -1 || f == 'cf_blocking_b2g'
+  }
+  Object.keys(bugfields).filter(cf).forEach(function(key) {
+    opts[key] = key 
+  })
+
+  object2option(opts, select1, group1 || 'cf_blocking_b2g')
+  object2option(opts, select2, group2 || 'component')
+
+  function chart(selector, data, properties) {
+    var isIE = false;
+    var chartWidth = 1000;
+    var chartHeight = 700;
+    var xscale = d3.scale.linear().range([0, chartWidth]);
+    var yscale = d3.scale.linear().range([0, chartHeight]);
+    var color = d3.scale.category10();
+    var headerHeight = 20;
+    var headerColor = "#555555";
+    var transitionDuration = 500;
+    var root;
+    var node;
+
+    var treemap = d3.layout.treemap()
+        .round(false)
+        .size([chartWidth, chartHeight])
+        .sticky(true)
+        .value(function(d) {
+            return d.size;
+        });
+
+    document.querySelector(selector).innerHTML = ''
+
+    var chart = d3.select(selector)
+        .append("svg:svg")
+        .attr("width", chartWidth)
+        .attr("height", chartHeight)
+        .append("svg:g");
+
+    node = root = data;
+    var nodes = treemap.nodes(root);
+
+    var children = nodes.filter(function(d) {
+        return !d.children;
+    });
+    var parents = nodes.filter(function(d) {
+        return d.children;
+    });
+
+    // create parent cells
+    var parentCells = chart.selectAll("g.cell.parent")
+        .data(parents, function(d) {
+            return "p-" + d.id;
+        });
+    var parentEnterTransition = parentCells.enter()
+        .append("g")
+        .attr("class", "cell parent")
+        .on("click", function(d) {
+            zoom(d);
+        });
+    parentEnterTransition.append("rect")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", headerHeight)
+        .style("fill", headerColor);
+    parentEnterTransition.append('foreignObject')
+        .attr("class", "foreignObject")
+        .append("xhtml:body")
+        .attr("class", "labelbody")
+        .append("div")
+        .attr("class", "label");
+    // update transition
+    var parentUpdateTransition = parentCells.transition().duration(transitionDuration);
+    parentUpdateTransition.select(".cell")
+        .attr("transform", function(d) {
+            return "translate(" + d.dx + "," + d.y + ")";
+        });
+    parentUpdateTransition.select("rect")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", headerHeight)
+        .style("fill", headerColor);
+    parentUpdateTransition.select(".foreignObject")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", headerHeight)
+        .select(".labelbody .label")
+        .text(function(d) {
+            return d.name;
+        });
+    // remove transition
+    parentCells.exit()
+        .remove();
+
+    // create children cells
+    var childrenCells = chart.selectAll("g.cell.child")
+        .data(children, function(d) {
+            return "c-" + d.id;
+        });
+    // enter transition
+    var childEnterTransition = childrenCells.enter()
+        .append("g")
+        .attr("class", "cell child")
+        .on("click", function(d) {
+            zoom(node === d.parent ? root : d.parent);
+        });
+    childEnterTransition.append("rect")
+        .classed("background", true)
+        .style("fill", function(d) {
+            return color(d.parent.name);
+        });
+    childEnterTransition.append('foreignObject')
+        .attr("class", "foreignObject")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", function(d) {
+            return Math.max(0.01, d.dy);
+        })
+        .append("xhtml:body")
+        .attr("class", "labelbody")
+        .append("div")
+        .attr("class", "label")
+        .text(function(d) {
+            return d.name;
+        });
+
+    if (isIE) {
+        childEnterTransition.selectAll(".foreignObject .labelbody .label")
+            .style("display", "none");
+    } else {
+        childEnterTransition.selectAll(".foreignObject")
+            .style("display", "none");
+    }
+
+    // update transition
+    var childUpdateTransition = childrenCells.transition().duration(transitionDuration);
+    childUpdateTransition.select(".cell")
+        .attr("transform", function(d) {
+            return "translate(" + d.x  + "," + d.y + ")";
+        });
+    childUpdateTransition.select("rect")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", function(d) {
+            return d.dy;
+        })
+        .style("fill", function(d) {
+            return color(d.parent.name);
+        });
+    childUpdateTransition.select(".foreignObject")
+        .attr("width", function(d) {
+            return Math.max(0.01, d.dx);
+        })
+        .attr("height", function(d) {
+            return Math.max(0.01, d.dy);
+        })
+        .select(".labelbody .label")
+        .text(function(d) {
+            return d.name;
+        });
+    // exit transition
+    childrenCells.exit()
+        .remove();
+
+    d3.select("select#sizecount").on("change", function() {
+        treemap.value(this.value == "size" ? size : count)
+            .nodes(root);
+        zoom(node);
+    });
+
+    zoom(node);
+
+    function size(d) {
+        return d.size;
+    }
+
+    function count(d) {
+        return 1;
+    }
+
+    //and another one
+    function textHeight(d) {
+        var ky = chartHeight / d.dy;
+        yscale.domain([d.y, d.y + d.dy]);
+        return (ky * d.dy) / headerHeight;
+    }
+
+    function getRGBComponents (color) {
+        var r = color.substring(1, 3);
+        var g = color.substring(3, 5);
+        var b = color.substring(5, 7);
+        return {
+            R: parseInt(r, 16),
+            G: parseInt(g, 16),
+            B: parseInt(b, 16)
+        };
+    }
+
+    function idealTextColor (bgColor) {
+        var nThreshold = 105;
+        var components = getRGBComponents(bgColor);
+        var bgDelta = (components.R * 0.299) + (components.G * 0.587) + (components.B * 0.114);
+        return ((255 - bgDelta) < nThreshold) ? "#000000" : "#ffffff";
+    }
+
+    function zoom(d) {
+        treemap
+            .padding([headerHeight/(chartHeight/d.dy), 0, 0, 0])
+            .nodes(d);
+
+        // moving the next two lines above treemap layout messes up padding of zoom result
+        var kx = chartWidth  / d.dx;
+        var ky = chartHeight / d.dy;
+        var level = d;
+
+        xscale.domain([d.x, d.x + d.dx]);
+        yscale.domain([d.y, d.y + d.dy]);
+
+        if (node != level) {
+            if (isIE) {
+                chart.selectAll(".cell.child .foreignObject .labelbody .label")
+                    .style("display", "none");
+            } else {
+                chart.selectAll(".cell.child .foreignObject")
+                    .style("display", "none");
+            }
+        }
+
+        var zoomTransition = chart.selectAll("g.cell").transition().duration(transitionDuration)
+            .attr("transform", function(d) {
+                return "translate(" + xscale(d.x) + "," + yscale(d.y) + ")";
+            })
+            .each("end", function(d, i) {
+                if (!i && (level !== root)) {
+                    chart.selectAll(".cell.child")
+                        .filter(function(d) {
+                            return d.parent === node; // only get the children for selected group
+                        })
+                        .select(".foreignObject .labelbody .label")
+                        .style("color", function(d) {
+                            return idealTextColor(color(d.parent.name));
+                        });
+
+                    if (isIE) {
+                        chart.selectAll(".cell.child")
+                            .filter(function(d) {
+                                return d.parent === node; // only get the children for selected group
+                            })
+                            .select(".foreignObject .labelbody .label")
+                            .style("display", "")
+                    } else {
+                        chart.selectAll(".cell.child")
+                            .filter(function(d) {
+                                return d.parent === node; // only get the children for selected group
+                            })
+                            .select(".foreignObject")
+                            .style("display", "")
+                    }
+                }
+            });
+
+        zoomTransition.select(".foreignObject")
+            .attr("width", function(d) {
+                return Math.max(0.01, kx * d.dx);
+            })
+            .attr("height", function(d) {
+                return d.children ? headerHeight: Math.max(0.01, ky * d.dy);
+            })
+            .select(".labelbody .label")
+            .text(function(d) {
+                return d.name;
+            });
+
+        // update the width/height of the rects
+        zoomTransition.select("rect")
+            .attr("width", function(d) {
+                return Math.max(0.01, kx * d.dx);
+            })
+            .attr("height", function(d) {
+                return d.children ? headerHeight : Math.max(0.01, ky * d.dy);
+            })
+            .style("fill", function(d) {
+                return d.children ? headerColor : color(d.parent.name);
+            });
+
+        node = d;
+
+        if (d3.event) {
+            d3.event.stopPropagation();
+        }
+    }
+  }
+
+  function makeShareableURL(url, properties) {
+    // update shareable url
+    var shareableURL = document.location.href + '?group1=' + properties[0] + '&group2=' + properties[1] + '&url=' + url
+    var share = document.querySelector('#share')
+    share.parentNode.style.display = 'block'
+    share.value = shareableURL
+  }
+
+  function go(url, properties) {
+    makeShareableURL(url, properties)
+
+    // get bugs, build tree
+    bugData(url, function(bugs) {
+      var treedata = bugdata2treemap(bugs, properties)
+      chart('#body', treedata, properties)
+    })
+  }
+
+  function optionValue(selectId) {
+    var el = document.querySelector(selectId)
+    return el.options[el.selectedIndex].value
+  }
+
+  function spinner(selector) {
+    document.querySelector(selector).innerHTML = '<img src="http://www.fbi.gov/spinner.gif">'
+  }
+
+  document.querySelector('#submit').addEventListener('click', function() {
+    var searchURL = document.querySelector('#searchURL').value
+    if (searchURL) {
+      spinner('#body')
+      go(searchURL, [optionValue('#group1'), optionValue('#group2')])
+    }
+  }, false)
+
+  if (autoload) {
+    spinner('#body')
+    go(defaultURL, [group1 || optionValue('#group1'), group2 || optionValue('#group2')])
+  }
+
+  document.querySelector('#submit').addEventListener('click', function() {
+    var searchURL = document.querySelector('#searchURL').value
+    if (searchURL) {
+      spinner('#body')
+      go(searchURL, [optionValue('#group1'), optionValue('#group2')])
+    }
+  })
+
+</script>
+
+</html>
