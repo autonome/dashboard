@@ -35,13 +35,17 @@
     </nav>
 
     <main class="hero-unit">
-      <h1 id="title">Create a Dashboard</h1>
+      <h1 id="title" class="editable">Create a Dashboard</h1>
       <button id="signin">Sign in</button>
 
             
       <!-- ich template for widgets -->
       <script id="item" type="text/html">
         <div id="{{ key }}" class="item">
+          <span class="links">
+            <a class="facets-link" target="new" href="http://people.mozilla.org/~dietrich/basecamp/facets.html?{{ url }}">f</a> /
+            <a class="treemap-link" target="new" href="http://people.mozilla.org/~dietrich/board/treemap.html?group1=component&group2=assigned_to.real_name&url={{ url }}">t</a>
+          </span>
           <span class="editButton">edit</span>
           <span class="deleteButton">delete</span>
           <a href="{{ url }}" target="new">
@@ -221,8 +225,10 @@
         // make box editable
         var content = box.find('.content'),
             title = box.find('h3').html() || 'Box Title',
-            url = box.data('url') || 'https://bugzilla.mozilla.org/buglist.cgi?list_id=7641040&resolution=---&resolution=DUPLICATE&status_whiteboard_type=allwordssubstr&query_format=advanced&status_whiteboard=d-watch'
-        content.html('<textarea class="input mousetrap">' + title + ',' + url + '</textarea>')
+            url = box.data('url') || '',
+            value = url ? title + ',' + url : title
+        content.html('<textarea class="input mousetrap">' + value + '</textarea>')
+        content.css('display', 'block')
 
         // do stuff when unfocused
         var textarea = content.find('textarea')
@@ -234,35 +240,25 @@
             content = textarea.parents('.content'),
             box = content.parents('.item'),
             text = textarea.val(),
-            values = text.split(','),
-            title = text,
-            url = ''
+            values = text.split(',').map(function(s) { return s.trim() }),
+            url = values[1] && values[1].indexOf('http') === 0 ? values[1] : '',
+            title = url ? values[0] : text
 
-        if (values.length == 2 && values[1].indexOf('htt') === 0) {
-          title = values[0]
-          url = values[1]
-        }
+        // save locally
+        box.data('url', url)
+        box.data('title', title)
 
-        // TODO: what to do if there's not?
-        if (url || title) {
-          // save locally
-          box.data('url', url)
-          box.data('title', title)
+        // update view
+        box.find('h3').html(title)
+        box.find('a').attr('href', url)
 
-          // update view
-          box.find('h3').html(title)
-          box.find('a').attr('href', url)
+        // save to firebase
+        updateFirebase(box.attr('id'), {
+          url: url,
+          title: title
+        })
 
-          // save to firebase
-          updateFirebase(box.attr('id'), {
-            url: url,
-            title: title
-          })
-
-          loadItem(box)
-
-        }
-
+        loadItem(box)
       }
 
       function loadItem(itemEl) {
@@ -403,8 +399,27 @@
       pckry.on('layoutComplete', onLayout)
       onLayout()
 
-
+      /*
+      // edit title on double click
+      $('.hero-unit').on('dblclick', '#title.editable', function() {
+        inlineEditable(this, editable.textConten, function(newValue) {
+          console.log('new title', newValue))
+        })
+      })
+      */
     })
+
+  // make a node editable inline
+  function inlineEditable(editable, value, callback) {
+    var input = document.createElement('input')
+    input.value = value
+    editable.innerHTML = ''
+    editable.appendChild(input)
+    input.addEventListener('blur', function(e) {
+      callback(input.value)
+    }, false)
+    input.focus()
+  }
   </script>
 </body>
 </html>

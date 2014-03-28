@@ -2,6 +2,7 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
   var user = null,
       owner = null,
       boardName = window.location.search.replace('?', ''),
+      boardkey = null,
       auth = null,
       firebaseURL = firebaseBaseURL + '/' + categoryPath + '/' || 'https://mozilla.firebaseio.com/dashboards/',
       firebaseRef = new Firebase(firebaseURL),
@@ -31,9 +32,10 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
     }
     else {
       // user is not logged in
-      console.log('user logged out?')
+      console.log('user logged out or is not logged in')
       events.emit('loggedOut')
     }
+    events.emit('authComplete')
   })
 
   function userIsOwner() {
@@ -54,8 +56,6 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
   $('#signin').on('click', signin)
 
   $('#createButton').on('click', function() {
-    // TODO: disable create button while saving
-
     // save
     firebaseRef.child(boardName).set({
       owner: user.id,
@@ -101,7 +101,6 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
       // user is logged in && name is valid
       var nameIsValid = /^[a-z0-9\-]+$/i.test(boardName)
       if (user && nameIsValid) {
-        //console.log('boardExists: user & valid name')
         $('#createBoard').show()
         $('#badBoard').hide()
         $('#noBoard').hide()
@@ -109,7 +108,6 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
       }
       // user is logged in && name is not valid
       else if (user && !nameIsValid) {
-        //console.log('boardExists: user & invalid name')
         $('#createBoard').hide()
         $('#badBoard').show()
         $('#noBoard').hide()
@@ -152,9 +150,11 @@ function boardcore(firebaseBaseURL, categoryPath, events) {
   })
 
   // load board if there is one
-  if (boardName) {
-    boardExists(boardName)
-  }
+  events.on('authComplete', function() {
+    if (boardName) {
+      boardExists(boardName)
+    }
+  })
 
   function capitalise(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
